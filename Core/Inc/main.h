@@ -57,6 +57,22 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define DRIVE_A4_Pin GPIO_PIN_14
+#define DRIVE_A4_GPIO_Port GPIOB
+#define DRIVE_A0_Pin GPIO_PIN_15
+#define DRIVE_A0_GPIO_Port GPIOB
+#define LED_Pin GPIO_PIN_6
+#define LED_GPIO_Port GPIOC
+#define DRIVE_A1_Pin GPIO_PIN_8
+#define DRIVE_A1_GPIO_Port GPIOA
+#define DRIVE_A2_Pin GPIO_PIN_10
+#define DRIVE_A2_GPIO_Port GPIOC
+#define DRIVE_EN2_Pin GPIO_PIN_11
+#define DRIVE_EN2_GPIO_Port GPIOC
+#define DRIVE_EN_Pin GPIO_PIN_5
+#define DRIVE_EN_GPIO_Port GPIOB
+#define DRIVE_A3_Pin GPIO_PIN_7
+#define DRIVE_A3_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
