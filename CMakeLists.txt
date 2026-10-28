@@ -45,6 +45,11 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
+    Core/Src/mux.c
+    Core/Src/sense.c
+    Core/Src/scan.c
+    Core/Src/pads.c
+    Core/Src/usb_out.c
 )
 
 # Add include paths

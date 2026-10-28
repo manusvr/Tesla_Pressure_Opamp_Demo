@@ -1,3 +1,6 @@
 ﻿.claude
 tesla-proto-hardware-and-control-plan.md
 tesla-proto-firmware-plan.md
+.settings/
+.vscode/
+build/

@@ -22,7 +22,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdbool.h>
 
+#include "mux.h"
+#include "sense.h"
+#include "scan.h"
+#include "pads.h"
+#include "usb_out.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -110,7 +116,7 @@ static void output_sensor_data()
   {
     cdc_tx_buf[0] = '\0';
   }
-  CDC_Transmit_FS((uint8_t*)&cdc_tx_buf, strlen(cdc_tx_buf));
+  //CDC_Transmit_FS((uint8_t*)&cdc_tx_buf, strlen(cdc_tx_buf));
 }
 
 
@@ -159,6 +165,7 @@ int main(void)
   MX_USB_Device_Init();
   /* USER CODE BEGIN 2 */
   uint32_t led_last = HAL_GetTick();
+  bool tick = true;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -166,12 +173,24 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-    if (HAL_GetTick() - led_last >= 500U)
-    {
-      led_last += 500U;
-      HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
-    }
+
     /* USER CODE BEGIN 3 */
+    if (HAL_GetTick() - led_last >= 500U)
+      {
+        led_last += 500U;
+        HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+        if(tick==true)
+        {
+          select_row(8);
+          tick = false;
+        }
+        else
+        {
+          select_row(1);
+          tick = true;
+        }
+        
+      }
   }
   /* USER CODE END 3 */
 }
