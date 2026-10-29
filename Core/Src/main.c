@@ -62,6 +62,8 @@ OPAMP_HandleTypeDef hopamp2;
 OPAMP_HandleTypeDef hopamp4;
 OPAMP_HandleTypeDef hopamp6;
 
+TIM_HandleTypeDef htim6;
+
 /* USER CODE BEGIN PV */
 static uint16_t sensor_values[TAXEL_COUNT];
 static char cdc_tx_buf[sizeof(char) * (6 * TAXEL_COUNT + 2) + sizeof(char)] = {0};
@@ -80,6 +82,7 @@ static void MX_OPAMP1_Init(void);
 static void MX_OPAMP2_Init(void);
 static void MX_OPAMP4_Init(void);
 static void MX_OPAMP6_Init(void);
+static void MX_TIM6_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -163,6 +166,7 @@ int main(void)
   MX_OPAMP4_Init();
   MX_OPAMP6_Init();
   MX_USB_Device_Init();
+  MX_TIM6_Init();
   /* USER CODE BEGIN 2 */
   uint32_t led_last = HAL_GetTick();
   bool tick = true;
@@ -170,6 +174,9 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+  scan_start(); 
+  
   while (1)
   {
     /* USER CODE END WHILE */
@@ -191,6 +198,7 @@ int main(void)
         }
         
       }
+
   }
   /* USER CODE END 3 */
 }
@@ -725,6 +733,44 @@ static void MX_OPAMP6_Init(void)
   /* USER CODE BEGIN OPAMP6_Init 2 */
 
   /* USER CODE END OPAMP6_Init 2 */
+
+}
+
+/**
+  * @brief TIM6 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM6_Init(void)
+{
+
+  /* USER CODE BEGIN TIM6_Init 0 */
+
+  /* USER CODE END TIM6_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM6_Init 1 */
+
+  /* USER CODE END TIM6_Init 1 */
+  htim6.Instance = TIM6;
+  htim6.Init.Prescaler = 16-1;
+  htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim6.Init.Period = 299;
+  htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM6_Init 2 */
+
+  /* USER CODE END TIM6_Init 2 */
 
 }
 
