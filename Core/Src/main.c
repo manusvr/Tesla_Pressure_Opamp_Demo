@@ -33,7 +33,7 @@
 #include "mux.h"
 #include "sense.h"
 #include "scan.h"
-#include "pads.h"
+#include "mapping.h"
 #include "usb_out.h"
 /* USER CODE END Includes */
 
@@ -44,8 +44,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define FRAMERATE 120
-#define TAXEL_COUNT 29
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -56,8 +55,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+static scan_frame_t frame;
 static uint16_t sensor_values[TAXEL_COUNT];
-static char cdc_tx_buf[sizeof(char) * (6 * TAXEL_COUNT + 2) + sizeof(char)] = {0};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -68,40 +67,6 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-static void output_sensor_data()
-{
-  size_t idx_char = 0;
-  int ret = 0;
-  for (size_t i = 0; i < TAXEL_COUNT; i++)
-  {
-    ret = snprintf(&cdc_tx_buf[idx_char], sizeof(cdc_tx_buf) - idx_char, "%u ", sensor_values[i]);
-    if (ret < 0)
-    {
-      cdc_tx_buf[0] = '\0';
-      return;
-    }
-    idx_char += ret;
-    if (idx_char >= sizeof(cdc_tx_buf))
-    {
-      cdc_tx_buf[0] = '\0';
-      return;
-    }
-  }
-  ret = snprintf(&cdc_tx_buf[idx_char], sizeof(cdc_tx_buf) - idx_char, "\r\n");
-  if (ret < 0)
-  {
-    cdc_tx_buf[0] = '\0';
-  }
-  idx_char += ret;
-  if (idx_char >= sizeof(cdc_tx_buf))
-  {
-    cdc_tx_buf[0] = '\0';
-  }
-  //CDC_Transmit_FS((uint8_t*)&cdc_tx_buf, strlen(cdc_tx_buf));
-}
-
-
 
 /* USER CODE END 0 */
 
@@ -160,6 +125,13 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    if (scan_frame_ready())                   /* a new frame every 1/120 s */
+    {
+      scan_take(&frame);
+      mapping_frame_to_taxels(&frame, sensor_values);
+      output_sensor_data(sensor_values);
+    }
+
     if (HAL_GetTick() - led_last >= 500U)     /* heartbeat: main loop is running */
     {
       led_last += 500U;

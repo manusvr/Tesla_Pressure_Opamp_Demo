@@ -48,7 +48,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/mux.c
     Core/Src/sense.c
     Core/Src/scan.c
-    Core/Src/pads.c
+    Core/Src/mapping.c
     Core/Src/usb_out.c
 )
 
