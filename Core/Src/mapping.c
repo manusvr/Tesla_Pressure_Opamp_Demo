@@ -52,7 +52,7 @@ void mapping_frame_to_taxels(const scan_frame_t *f, uint16_t out[TAXEL_COUNT])
         uint16_t raw  = f->raw[taxel_cell[i].row][taxel_cell[i].tia];
 
         /* pressed pad pulls raw below null; converted to OUTPUT_SENSITIVITY units so every scale gives the same value */
-        uint32_t value = (raw < null) ? (uint32_t)(null - raw) * 2U * sense_drive(OUTPUT_SENSITIVITY) / drive : 0;
+        uint32_t value = (raw < null) ? (uint32_t)(null - raw) * 2U * sense_drive(OUTPUT_SENSITIVITY) / ((uint32_t)drive * SENSE_COUNTS_PER_LSB) : 0;
 
         out[i] = (value > 4095U) ? 4095U : value;
     }

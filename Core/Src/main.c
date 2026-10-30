@@ -132,7 +132,7 @@ int main(void)
       output_sensor_data(sensor_values);
     }
 
-    if (HAL_GetTick() - led_last >= 500U)     /* heartbeat: main loop is running */
+    if (HAL_GetTick() - led_last >= 500U)    
     {
       led_last += 500U;
       HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);

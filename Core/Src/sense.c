@@ -10,8 +10,9 @@
 static OPAMP_HandleTypeDef *const tia_opamp[4] = { &hopamp1, &hopamp2, &hopamp4, &hopamp6 };
 static ADC_HandleTypeDef   *const tia_adc[4]   = { &hadc1, &hadc2, &hadc5, &hadc4 };
 
-/* VDRIVE = 3.3 V * code / 4096: 1.540 / 1.399 / 1.100 / 0.450 / 0.200 V */
-static const uint16_t dac_code[SENSE_DAC_SCALES] = { 1911, 1737, 1365, 558, 248 };
+/* VDRIVE = 3.3 V * code / 4096: 1.540 / 1.399 / 1.100 / 0.450 / 0.203 V
+   252 not 248: DAC buffer output >= 0.2 V (DS12712 Table 69), margin for VDDA down to 3.25 V */
+static const uint16_t dac_code[SENSE_DAC_SCALES] = { 1911, 1737, 1365, 558, 252 };
 
 void sense_set_scale(uint8_t s)
 {
@@ -59,6 +60,6 @@ void sense_read4(uint16_t out[4])
         while (LL_ADC_IsActiveFlag_EOC(tia_adc[t]->Instance)==false)
         {
         }
-        out[t] = LL_ADC_REG_ReadConversionData12(tia_adc[t]->Instance);
+        out[t] = (uint16_t)LL_ADC_REG_ReadConversionData32(tia_adc[t]->Instance);  
     }
 }

@@ -1,9 +1,9 @@
 #include "ranging.h"
 #include "sense.h"
 
-#define STEP_CLIP 1850U             /* PGA at its 0.1 V floor (~1924): TIA may be saturated */
-#define STEP_HIGH 1700U             /* above this: one scale down */
-#define STEP_LOW  1500U             /* one scale up only if the largest step stays below this */
+#define STEP_CLIP (1850U * SENSE_COUNTS_PER_LSB)   /* PGA at its 0.1 V floor (~1924 LSB): TIA may be saturated */
+#define STEP_HIGH (1700U * SENSE_COUNTS_PER_LSB)   /* above this: one scale down */
+#define STEP_LOW  (1500U * SENSE_COUNTS_PER_LSB)   /* one scale up only if the largest step stays below this */
 
 _Static_assert(OUTPUT_SENSITIVITY < SENSE_DAC_SCALES, "OUTPUT_SENSITIVITY must be 0..4");
 
@@ -30,7 +30,7 @@ uint8_t ranging_next_scale(const scan_frame_t *f)
 
     uint8_t s = f->scale;
 
-    if (max_step > STEP_CLIP)                       /* clipped: back off fully, don't disturb the other readings */
+    if (max_step > STEP_CLIP)                      
     {
         return 0;
     }
@@ -38,8 +38,7 @@ uint8_t ranging_next_scale(const scan_frame_t *f)
     {
         return s - 1;
     }
-    if (s < SENSE_DAC_SCALES - 1 &&
-        (uint32_t)max_step * sense_drive(s + 1) / sense_drive(s) < STEP_LOW)
+    if (s < SENSE_DAC_SCALES - 1 && (uint32_t)max_step * sense_drive(s + 1) / sense_drive(s) < STEP_LOW)
     {
         return s + 1;
     }
