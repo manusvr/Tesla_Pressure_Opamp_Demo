@@ -2,6 +2,7 @@
 #include "tim.h"                                    /* htim6: 1 MHz tick */
 #include "mux.h"
 #include "sense.h"
+#include "ranging.h"
 
 #define SETTLE_US 300U                              /* minimum TIA settle time per step */
 #define FRAME_US  (1000000U / SCAN_FRAMERATE)       /* 8333 us at 120 Hz */
@@ -12,7 +13,6 @@ _Static_assert(STEP_US <= 65536U, "TIM6 is 16-bit: SCAN_FRAMERATE too low");
 static scan_frame_t buffer[2];                         /* ISR fills one, main reads the other */
 static uint8_t fill=0;
 static uint8_t step;                                /* step being settled, 0..SCAN_STEPS-1 */
-static uint32_t frame_count;
 static volatile uint8_t done;
 static volatile bool ready;
 
@@ -48,11 +48,15 @@ static void scan_tick(void)                         /* runs every TIM6 tick whic
 
     if (step == SCAN_STEPS)                         /* frame complete switch to other buffer for filling */
     {
-        buffer[fill].frame = ++frame_count;
+        uint8_t s = ranging_next_scale(&buffer[fill]);  /* decide from the frame just finished */
+
         done = fill;
         ready = true;
         fill = !fill;
         step = 0;
+
+        sense_set_scale(s);                         /* DAC changes only between frames: null and CAL match the rows */
+        buffer[fill].scale = s;
     }
 
     select_step(step);                               /* select next step for the upcoming tick */
@@ -61,7 +65,7 @@ static void scan_tick(void)                         /* runs every TIM6 tick whic
 void scan_start(void)
 {
     step = 0;
-    select_step(0);                                 /* first trigger reads step 0 */
+    select_step(0);                                 
     __HAL_TIM_SET_AUTORELOAD(&htim6, STEP_US - 1U);
     HAL_TIM_Base_Start_IT(&htim6);
 }

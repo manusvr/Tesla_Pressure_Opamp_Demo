@@ -1,4 +1,6 @@
 #include "mapping.h"
+#include "sense.h"
+#include "ranging.h"
 
 typedef struct
 {
@@ -6,7 +8,7 @@ typedef struct
     uint8_t tia;                    /* TIA t 0..3 */
 } taxel_cell_t;
 
-/* taxel -> scan cell, glove wiring case 1 (tesla-proto-firmware-plan.md, step 8b) */
+/* Taxel to row and TIA mapping */
 static const taxel_cell_t taxel_cell[TAXEL_COUNT] =
 {
     [0]  = { 0, 0 },                /* A1 */
@@ -42,12 +44,16 @@ static const taxel_cell_t taxel_cell[TAXEL_COUNT] =
 
 void mapping_frame_to_taxels(const scan_frame_t *f, uint16_t out[TAXEL_COUNT])
 {
+    uint16_t drive = sense_drive(f->scale);
+
     for (uint8_t i = 0; i < TAXEL_COUNT; i++)
     {
         uint16_t null = f->null[taxel_cell[i].tia];
         uint16_t raw  = f->raw[taxel_cell[i].row][taxel_cell[i].tia];
-        uint16_t value = (raw < null) ? (null - raw) * 2 : 0;   /* pressed pad pulls raw below null */
 
-        out[i] = (value > 4095) ? 4095 : value;                  /* spec: 12 bit */
+        /* pressed pad pulls raw below null; converted to OUTPUT_SENSITIVITY units so every scale gives the same value */
+        uint32_t value = (raw < null) ? (uint32_t)(null - raw) * 2U * sense_drive(OUTPUT_SENSITIVITY) / drive : 0;
+
+        out[i] = (value > 4095U) ? 4095U : value;
     }
 }
