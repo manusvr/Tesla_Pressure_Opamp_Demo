@@ -1,7 +1,7 @@
 #include "ranging.h"
 #include "sense.h"
 
-#define STEP_CLIP (1850U * SENSE_COUNTS_PER_LSB)   /* PGA at its 0.1 V floor (~1924 LSB): TIA may be saturated */
+#define STEP_CLIP SENSE_STEP_FULL                  /* PGA at its 0.1 V floor (~1924 LSB): TIA may be saturated */
 #define STEP_HIGH (1700U * SENSE_COUNTS_PER_LSB)   /* above this: one scale down */
 #define STEP_LOW  (1500U * SENSE_COUNTS_PER_LSB)   /* one scale up only if the largest step stays below this */
 
