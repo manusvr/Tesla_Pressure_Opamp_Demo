@@ -3,10 +3,9 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "app_config.h"
 
-
-#define SCAN_FRAMERATE 120              /* Hz */
-#define  SCAN_ROWS      9               
+#define  SCAN_ROWS      9
 #define SCAN_CHANNELS  4                /* TIA 0..3 */
 #define SCAN_STEPS     (SCAN_ROWS + 2)  /* Rows + null step + CAll */
 
