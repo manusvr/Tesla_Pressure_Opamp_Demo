@@ -1,6 +1,7 @@
 #include "mapping.h"
 #include "sense.h"
 #include "ranging.h"
+#include "tare.h"
 
 typedef struct
 {
@@ -45,6 +46,7 @@ static const taxel_cell_t taxel_cell[TAXEL_COUNT] =
 void mapping_frame_to_taxels(const scan_frame_t *f, uint16_t out[TAXEL_COUNT])
 {
     uint16_t drive = sense_drive(f->scale);
+    uint32_t value[TAXEL_COUNT];
 
     for (uint8_t i = 0; i < TAXEL_COUNT; i++)
     {
@@ -52,9 +54,17 @@ void mapping_frame_to_taxels(const scan_frame_t *f, uint16_t out[TAXEL_COUNT])
         uint16_t raw  = f->raw[taxel_cell[i].row][taxel_cell[i].tia];
 
         /* pressed pad pulls raw below null; converted to OUTPUT_SENSITIVITY units so every scale gives the same value */
-        uint32_t step  = (raw < null) ? (uint32_t)(null - raw) * sense_drive(OUTPUT_SENSITIVITY) / drive : 0;
-        uint32_t value = step * 4095U / SENSE_STEP_FULL;          /* largest trusted step = 4095 */
+        uint32_t step = (raw < null) ? (uint32_t)(null - raw) * sense_drive(OUTPUT_SENSITIVITY) / drive : 0;
+        value[i] = step * 4095U / SENSE_STEP_FULL;                /* largest trusted step = 4095 */
+    }
 
-        out[i] = (value > 4095U) ? 4095U : value;
+    if (TARE_ENABLE)                                              /* before the cap, so a tared pad still reaches 4095 */
+    {
+        tare_apply(value);
+    }
+
+    for (uint8_t i = 0; i < TAXEL_COUNT; i++)
+    {
+        out[i] = (value[i] > 4095U) ? 4095U : value[i];
     }
 }

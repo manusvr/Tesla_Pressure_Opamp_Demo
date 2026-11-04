@@ -50,6 +50,7 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     Core/Src/scan.c
     Core/Src/mapping.c
     Core/Src/ranging.c
+    Core/Src/tare.c
     Core/Src/usb_out.c
 )
 
