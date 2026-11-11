@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pressure Visualizer</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #5f6b7a; --line: #d9dee5;
+    --accent: #2563eb; --ok: #16a34a; --err: #dc2626; --cell-empty: #eef1f5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111418; --panel: #1a1e24; --text: #e6e9ee; --muted: #9aa5b4; --line: #2c333d;
+            --accent: #60a5fa; --ok: #4ade80; --err: #f87171; --cell-empty: #232932; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 20px 16px 40px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+  button { font: inherit; padding: 7px 14px; border-radius: 6px; border: 1px solid var(--line);
+           background: var(--panel); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  .status { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: var(--ok); } .dot.err { background: var(--err); }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; }
+  @media (max-width: 720px) { .layout { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .gridwrap { position: relative; width: 100%; max-width: 520px; margin: 0 auto; aspect-ratio: 1; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+          gap: 8px; width: 100%; height: 100%; }
+  .cell { border-radius: 8px; background: var(--cell-empty); display: flex; flex-direction: column;
+          align-items: center; justify-content: center; position: relative; transition: background-color 40ms linear; }
+  .cell .v { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .cell .lbl { position: absolute; top: 6px; left: 8px; font-size: 11px; opacity: .75; }
+  .cell .pk { position: absolute; bottom: 6px; right: 8px; font-size: 11px; opacity: .75; font-variant-numeric: tabular-nums; }
+  .cop { position: absolute; width: 18px; height: 18px; margin: -9px 0 0 -9px; border-radius: 50%;
+         border: 3px solid #fff; box-shadow: 0 0 0 2px #000; pointer-events: none; display: none; }
+  .legend { height: 10px; border-radius: 5px; margin: 12px auto 2px; max-width: 520px;
+            background: linear-gradient(90deg, #0d0887, #6a00a8, #b12a90, #e16462, #fca636, #f0f921); }
+  .legend-lbl { display: flex; justify-content: space-between; max-width: 520px; margin: 0 auto;
+                color: var(--muted); font-size: 12px; }
+  .side h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 8px; }
+  .side section + section { margin-top: 16px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-variant-numeric: tabular-nums; }
+  .kv span:nth-child(odd) { color: var(--muted); }
+  label { display: block; margin: 6px 0 2px; color: var(--muted); }
+  input[type=range] { width: 100%; }
+  .map { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+  .map input { width: 100%; font: inherit; padding: 4px; text-align: center; border-radius: 4px;
+               border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  .chk { display: flex; align-items: center; gap: 6px; color: var(--text); margin-top: 8px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+  .tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none;
+                 color: var(--muted); padding: 8px 14px; }
+  .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  body[data-tab="glove"] main { max-width: 1300px; }
+  body[data-tab="glove"] .only-grid, body:not([data-tab="glove"]) .only-glove { display: none !important; }
+  #gloveSvg { width: 100%; height: auto; display: block; border-radius: 8px; }
+  #gloveSvg .glovebg { fill: #ffffff; }
+  #gloveSvg circle { stroke: var(--panel); stroke-width: 3; }
+  #gloveSvg text { font-weight: 600; text-anchor: middle; dominant-baseline: central; pointer-events: none;
+                   font-variant-numeric: tabular-nums; }
+  #gloveSvg text.gn { font-size: 17px; fill: #1b1f24; opacity: .8; }
+  @media (prefers-color-scheme: dark) { #gloveSvg .glovebg { fill: #dfe3e8; } }
+  select { font: inherit; width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line);
+           background: var(--bg); color: var(--text); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 6px 16px; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .cell .snd { font-size: 12px; opacity: .8; display: none; }
+  body.drum .cell .snd { display: block; }
+  .switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer;
+            color: var(--text); margin: 0; }
+  .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch .track { position: relative; width: 42px; height: 24px; border-radius: 12px; background: var(--line);
+                   transition: background .15s; flex: none; }
+  .switch .track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+                          border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .switch input:checked + .track { background: var(--accent); }
+  .switch input:checked + .track::after { transform: translateX(18px); }
+  .switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .drumctl { display: none; } body.drum .drumctl { display: block; }
+  pre { margin: 12px 0 0; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line);
+        border-radius: 8px; color: var(--muted); font-size: 12px; white-space: pre-wrap; word-break: break-all;
+        min-height: 2.6em; }
+  .warn { color: var(--err); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Pressure visualizer</h1>
+  <p class="sub">Reads the USB CDC text output (29 taxel values per line) via Web Serial. Use Chrome or Edge.</p>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabGrid" data-tab="grid" aria-selected="true">3×3 sensor</button>
+    <button role="tab" id="tabGlove" data-tab="glove" aria-selected="false">Full glove</button>
+  </div>
+
+  <div class="bar">
+    <button id="btnConnect" class="primary">Connect</button>
+    <button id="btnDisconnect" disabled>Disconnect</button>
+    <button id="btnDemo">Demo data</button>
+    <button id="btnPeak">Reset peaks</button>
+    <span class="status"><span id="dot" class="dot"></span><span id="statusText">Not connected</span></span>
+  </div>
+  <p id="noSerial" class="warn" hidden>Web Serial is not available in this browser. Open this file in Chrome or Edge.</p>
+
+  <div class="layout">
+    <div class="panel only-glove">
+      <svg id="gloveSvg" viewBox="0 0 1374 1044" role="img" aria-label="Glove with the 29 pads coloured by pressure">
+        <rect class="glovebg" width="1374" height="1044"/>
+        <image id="gloveImg" href="glove.png" x="0" y="0" width="1374" height="1044" opacity=".3"/>
+        <g id="glovePads"></g>
+      </svg>
+      <div class="legend"></div>
+      <div class="legend-lbl"><span>0</span><span class="legendMax">4095</span></div>
+    </div>
+
+    <div class="panel only-grid">
+      <div class="gridwrap">
+        <div class="grid" id="grid"></div>
+        <div class="cop" id="cop"></div>
+      </div>
+      <div class="legend"></div>
+      <div class="legend-lbl"><span>0</span><span class="legendMax">4095</span></div>
+    </div>
+
+    <div class="panel side">
+      <section>
+        <h2>Stream</h2>
+        <div class="kv">
+          <span>Rate</span><span id="fps">–</span>
+          <span>Lines</span><span id="lines">0</span>
+          <span>Bad lines</span><span id="bad">0</span>
+          <span>Frame</span><span id="frame">–</span>
+          <span>Scale</span><span id="scale">–</span>
+          <span>Sum</span><span id="sum">–</span>
+        </div>
+      </section>
+      <section>
+        <h2>Display</h2>
+        <label for="fullScale">Full scale: <span id="fullScaleVal">4095</span></label>
+        <input id="fullScale" type="range" min="50" max="4095" step="5" value="4095">
+        <label class="chk only-grid"><input id="showCop" type="checkbox" checked> Centre of pressure</label>
+        <label class="chk"><input id="showRaw" type="checkbox"> Show raw line</label>
+      </section>
+      <section class="only-glove">
+        <h2>Hand</h2>
+        <div class="seg" role="group" aria-label="Hand">
+          <button id="handLeft" data-hand="left" aria-pressed="true">Left</button>
+          <button id="handRight" data-hand="right" aria-pressed="false">Right</button>
+        </div>
+      </section>
+      <section class="only-glove">
+        <h2>Page remap</h2>
+        <p class="sub" style="margin:0 0 6px;font-size:12px">The firmware already maps the glove (<code>GLOVE_WIRING_CASE</code> in app_config.h). Leave this on 1 unless the board was built for case 1 and the glove is plugged in another way.</p>
+        <select id="wcase" aria-label="Page remap wiring case">
+          <option value="1">1 · rows A…I, cols 1…9</option>
+          <option value="2">2 · rows I…A, cols 9…1</option>
+          <option value="3">3 · rows 1…9, cols A…I</option>
+          <option value="4">4 · rows 9…1, cols I…A</option>
+        </select>
+        <p class="sub" id="wcaseNote" style="margin:6px 0 0;font-size:12px"></p>
+      </section>
+      <section class="only-grid">
+        <h2>Drum pad</h2>
+        <label class="switch"><span>Drum pad mode</span><input id="drumOn" type="checkbox"><span class="track"></span></label>
+        <div class="drumctl">
+          <label for="drumThr">Hit threshold: <span id="drumThrVal">150</span></label>
+          <input id="drumThr" type="range" min="20" max="2000" step="10" value="150">
+          <label for="drumVol">Volume: <span id="drumVolVal">80</span>%</label>
+          <input id="drumVol" type="range" min="0" max="100" step="1" value="80">
+          <div class="kv" style="margin-top:8px">
+            <span>Audio</span><span id="audioState">off</span>
+            <span>Hits</span><span id="hitCount">0</span>
+            <span>Max now</span><span id="maxNow">–</span>
+          </div>
+          <p class="sub" style="margin:6px 0 0;font-size:12px">Click a pad to test its sound.</p>
+        </div>
+      </section>
+      <section class="only-grid">
+        <h2>Taxel index per cell</h2>
+        <div class="map" id="map"></div>
+        <label class="chk" style="margin-top:6px"><button id="btnMapReset" type="button">Default mapping</button></label>
+      </section>
+    </div>
+  </div>
+
+  <pre id="raw" hidden></pre>
+</main>
+
+<script>
+(() => {
+  const TAXEL_COUNT = 29;
+  const VMAX = 4095;
+  /* row k 0..2 × TIA 0..2, taxel indices from mapping.c */
+  const DEFAULT_MAP = [0, 2, 4,
+                       1, 3, 13,
+                       6, 5, 8];
+  const PAD_NAME = { 0: 'A1', 1: 'B1', 2: 'A2', 3: 'B2', 4: 'A3', 5: 'C2', 6: 'C5', 8: 'C3', 13: 'B3' };
+
+  const $ = id => document.getElementById(id);
+
+  /* ---------- drum pad: Web Audio synth, one sound per cell (pad 1..9) ---------- */
+  let actx = null, master = null, noiseBuf = null;
+  let drumOn = false, drumThr = 150;
+  const HIT_WINDOW_MS = 20;   /* after crossing the threshold, wait up to this long for the peak (velocity) */
+  const REARM_RATIO = 0.6;    /* pad re-arms once it drops below threshold × this */
+  const drumState = Array.from({ length: 9 }, () => ({ armed: true, pending: false, t0: 0, max: 0, prev: 0 }));
+
+  function audioInit() {
+    if (actx === null) {
+      actx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+      const comp = actx.createDynamicsCompressor();
+      master = actx.createGain();
+      master.gain.value = +$('drumVol').value / 100;
+      master.connect(comp); comp.connect(actx.destination);
+      noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      actx.onstatechange = () => { $('audioState').textContent = actx.state; };
+    }
+    if (actx.state === 'suspended') actx.resume();
+    $('audioState').textContent = actx.state;
+  }
+  /* browsers may suspend audio until a click: resume on any click on the page */
+  document.addEventListener('pointerdown', () => { if (drumOn) audioInit(); });
+  let hitCount = 0;
+  function env(g, t, peak, decay) {
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
+  }
+  function noise(t, dur, type, freq, q, peak, decay) {
+    const src = actx.createBufferSource(); src.buffer = noiseBuf;
+    const f = actx.createBiquadFilter(); f.type = type; f.frequency.value = freq; if (q) f.Q.value = q;
+    const g = actx.createGain(); env(g, t, peak, decay);
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start(t); src.stop(t + dur);
+  }
+  function tone(t, type, f0, f1, sweep, peak, decay) {
+    const o = actx.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + sweep);
+    const g = actx.createGain(); env(g, t, peak, decay);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + decay + 0.05);
+  }
+  const DRUMS = [
+    { name: 'Crash',      play: (t, v) => noise(t, 1.6, 'highpass', 4500, 0, 0.6 * v, 1.5) },
+    { name: 'Open hat',   play: (t, v) => noise(t, 0.5, 'highpass', 7000, 0, 0.5 * v, 0.4) },
+    { name: 'Closed hat', play: (t, v) => noise(t, 0.1, 'highpass', 8000, 0, 0.5 * v, 0.06) },
+    { name: 'High tom',   play: (t, v) => tone(t, 'sine', 260, 170, 0.25, 0.9 * v, 0.35) },
+    { name: 'Mid tom',    play: (t, v) => tone(t, 'sine', 190, 120, 0.3, 0.9 * v, 0.4) },
+    { name: 'Low tom',    play: (t, v) => tone(t, 'sine', 130, 80, 0.35, 0.9 * v, 0.5) },
+    { name: 'Kick',       play: (t, v) => { tone(t, 'sine', 150, 42, 0.12, 1.0 * v, 0.45); noise(t, 0.02, 'lowpass', 3000, 0, 0.3 * v, 0.015); } },
+    { name: 'Snare',      play: (t, v) => { noise(t, 0.25, 'highpass', 1200, 0, 0.7 * v, 0.2); tone(t, 'triangle', 200, 160, 0.05, 0.5 * v, 0.1); } },
+    { name: 'Clap',       play: (t, v) => { for (let k = 0; k < 3; k++) noise(t + k * 0.012, 0.03, 'bandpass', 1500, 1.2, 0.7 * v, 0.012); noise(t + 0.036, 0.3, 'bandpass', 1500, 1.2, 0.6 * v, 0.2); } },
+  ];
+
+  function drumFire(i, peak) {
+    const span = Math.max(1, fullScale - drumThr);
+    const vel = Math.min(1, Math.max(0, (peak - drumThr) / span));
+    DRUMS[i].play(actx.currentTime + 0.001, 0.25 + 0.75 * Math.sqrt(vel));
+    $('hitCount').textContent = ++hitCount;
+    cells[i].el.animate([{ boxShadow: 'inset 0 0 0 5px #fff', transform: 'scale(0.95)' },
+                         { boxShadow: 'inset 0 0 0 0 rgba(255,255,255,0)', transform: 'scale(1)' }], { duration: 200 });
+  }
+  /* per frame: threshold crossing arms a hit; fire at the peak (value stops rising) or after HIT_WINDOW_MS */
+  function drumProcess(vals) {
+    const now = performance.now();
+    for (let i = 0; i < 9; i++) {
+      const v = vals[map[i]] ?? 0, s = drumState[i];
+      if (s.pending) {
+        s.max = Math.max(s.max, v);
+        if (v < s.prev || now - s.t0 >= HIT_WINDOW_MS) { drumFire(i, s.max); s.pending = false; s.armed = false; }
+      } else if (s.armed) {
+        if (v >= drumThr) { s.pending = true; s.t0 = now; s.max = v; }
+      } else if (v < drumThr * REARM_RATIO) {
+        s.armed = true;
+      }
+      s.prev = v;
+    }
+  }
+
+  $('drumOn').addEventListener('change', e => {
+    drumOn = e.target.checked;
+    document.body.classList.toggle('drum', drumOn);
+    if (drumOn) { audioInit(); drumState.forEach(s => { s.armed = false; s.pending = false; }); }
+  });
+  $('drumThr').addEventListener('input', e => { drumThr = +e.target.value; $('drumThrVal').textContent = drumThr; });
+  $('drumVol').addEventListener('input', e => {
+    $('drumVolVal').textContent = e.target.value;
+    if (master) master.gain.value = +e.target.value / 100;
+  });
+
+  let map = loadMap();
+  let fullScale = VMAX;
+  let peaks = new Array(9).fill(0);
+  let latest = null;          /* last parsed taxel array */
+  let latestMeta = {};
+  let lineCount = 0, badCount = 0, rateCount = 0, lastRateT = performance.now();
+  let port = null, reader = null, keepReading = false, demoTimer = null;
+
+  /* ---------- UI setup ---------- */
+  const cells = [];
+  for (let i = 0; i < 9; i++) {
+    const el = document.createElement('div');
+    el.className = 'cell';
+    el.innerHTML = '<span class="lbl"></span><span class="v">–</span><span class="snd"></span><span class="pk"></span>';
+    $('grid').appendChild(el);
+    cells.push({ el, v: el.querySelector('.v'), lbl: el.querySelector('.lbl'), pk: el.querySelector('.pk') });
+    el.querySelector('.snd').textContent = DRUMS[i].name;
+    el.addEventListener('click', () => { if (drumOn) { audioInit(); drumFire(i, fullScale); } });
+  }
+  const mapInputs = [];
+  for (let i = 0; i < 9; i++) {
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.min = 0; inp.max = TAXEL_COUNT - 1;
+    inp.addEventListener('change', () => {
+      const n = parseInt(inp.value, 10);
+      if (Number.isInteger(n) && n >= 0 && n < TAXEL_COUNT) { map[i] = n; saveMap(); }
+      refreshLabels();
+    });
+    $('map').appendChild(inp);
+    mapInputs.push(inp);
+  }
+  function refreshLabels() {
+    for (let i = 0; i < 9; i++) {
+      mapInputs[i].value = map[i];
+      const r = Math.floor(i / 3), c = i % 3;
+      cells[i].lbl.textContent = `R${r} C${c} · t${map[i]}` + (PAD_NAME[map[i]] ? ` (${PAD_NAME[map[i]]})` : '');
+    }
+  }
+  refreshLabels();
+
+  /* ---------- full glove ---------- */
+  /* taxel order 0..28 as sent by the firmware (mapping.c, wiring case 1) */
+  const TAXEL_NAME = ['A1','B1','A2','B2','A3','C2','C5','D5','C3','D3','D4','C4','B4','B3','E6',
+                      'E5','F6','F5','E4','H7','H6','G7','G6','G8','I7','I9','H9','I8','H8'];
+  /* pad centre on glove.png (px), optional radius for large pads; from the glove sim (teslasim/glove.py) */
+  const PAD_XY = { A1: [40, 646], A2: [78, 678], A3: [135, 692], B1: [73, 606], B2: [110, 637],
+    B3: [452, 605, 26], B4: [462, 557, 26], C2: [426, 836, 62], C3: [340, 180], C4: [405, 373, 30],
+    C5: [335, 140], D3: [375, 177], D4: [385, 272, 30], D5: [370, 139], E4: [575, 565, 30], E5: [527, 87],
+    E6: [528, 48], F5: [574, 337], F6: [556, 201], G6: [731, 363], G7: [715, 245], G8: [750, 552, 30],
+    H6: [694, 126], H7: [695, 86], H8: [810, 624, 30], H9: [883, 481], I7: [869, 300, 26],
+    I8: [869, 603, 30], I9: [870, 400] };
+  /* where the pad name goes (default: below), for pads that sit close together */
+  const NAME_SIDE = { C5: 'n', D5: 'n', E6: 'n', H7: 'n', B1: 'n', B4: 'n', B2: 'e' };
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs, parent) {
+    const el = document.createElementNS(SVGNS, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    parent.appendChild(el);
+    return el;
+  }
+  /* Wiring case (hardware plan §5): how the breakout is plugged into P2.
+     Electrical cell = row step k and TIA (column pin j mod 4). The firmware always sends the 29 cells
+     of case 1 (taxel order above); in another case a pad sits on another cell, and is not shown when
+     the firmware does not send that cell. */
+  const LETTERS = 'ABCDEFGHI';
+  function padCell(wcase, name) {
+    const li = LETTERS.indexOf(name[0]), n = +name.slice(1);
+    let k, j;
+    if (wcase === 1)      { k = li;    j = n - 1; }    /* rows A..I, cols 1..9 */
+    else if (wcase === 2) { k = 8 - li; j = 9 - n; }   /* rows I..A, cols 9..1 */
+    else if (wcase === 3) { k = n - 1; j = li; }       /* rows 1..9, cols A..I */
+    else                  { k = 9 - n; j = 8 - li; }   /* rows 9..1, cols I..A */
+    return k * 4 + (j % 4);
+  }
+  const FW_CELL_TO_TAXEL = new Map(TAXEL_NAME.map((name, i) => [padCell(1, name), i]));
+  let padSrc = TAXEL_NAME.map((_, i) => i);          /* per drawn pad: index in the firmware line, or null */
+  function padTitle(name, t) {
+    return padSrc[t] === null ? `${name} · not sent by the firmware in this wiring case` : `${name} · taxel ${padSrc[t]}`;
+  }
+  function setCase(wcase) {
+    padSrc = TAXEL_NAME.map(name => FW_CELL_TO_TAXEL.get(padCell(wcase, name)) ?? null);
+    $('wcase').value = String(wcase);
+    const missing = TAXEL_NAME.filter((_, t) => padSrc[t] === null);
+    $('wcaseNote').textContent = missing.length
+      ? `Not in the firmware output for this case: ${missing.join(', ')} (shown ×).`
+      : 'Firmware default: all 29 pads.';
+    gloveEls.forEach((el, t) => { el.ti.textContent = padTitle(TAXEL_NAME[t], t); });
+    try { localStorage.setItem('pv_remap', String(wcase)); } catch (e) {}
+  }
+
+  /* the artwork as drawn = left hand; right hand = mirrored left to right (pads keep their taxel) */
+  const GLOVE_W = 1374;
+  let gloveEls = [];
+  function buildGlove(hand) {
+    const mirror = hand === 'right';
+    $('gloveImg').setAttribute('transform', mirror ? `translate(${GLOVE_W},0) scale(-1,1)` : '');
+    $('glovePads').replaceChildren();
+    gloveEls = TAXEL_NAME.map((name, t) => buildPad(name, t, mirror));
+    document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.hand === hand)));
+    try { localStorage.setItem('pv_hand', hand); } catch (e) {}
+  }
+  function buildPad(name, t, mirror) {
+    const [x0, y, r0] = PAD_XY[name];
+    const x = mirror ? GLOVE_W - x0 : x0;
+    let side = NAME_SIDE[name] || 's';
+    if (mirror) side = side === 'w' ? 'e' : side === 'e' ? 'w' : side;
+    const r = Math.max(r0 || 19, 19);
+    const g = svgEl('g', {}, $('glovePads'));
+    const ti = svgEl('title', {}, g);
+    ti.textContent = padTitle(name, t);
+    const c = svgEl('circle', { cx: x, cy: y, r }, g);
+    const v = svgEl('text', { x, y, 'font-size': r > 19 ? 22 : 15 }, g);
+    const n = svgEl('text', { x: side === 'w' ? x - r - 16 : side === 'e' ? x + r + 16 : x,
+                              y: side === 'n' ? y - r - 12 : side === 's' ? y + r + 13 : y, class: 'gn' }, g);
+    n.textContent = name;
+    c.style.fill = 'rgba(255,255,255,.85)'; v.style.fill = '#5f6b7a'; v.textContent = '–';
+    return { c, v, ti };
+  }
+  document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => buildGlove(b.dataset.hand)));
+  let savedHand = 'left';
+  try { savedHand = localStorage.getItem('pv_hand') || 'left'; } catch (e) {}
+  buildGlove(savedHand === 'right' ? 'right' : 'left');
+  $('wcase').addEventListener('change', e => setCase(+e.target.value));
+  let savedCase = 1;
+  try { savedCase = +(localStorage.getItem('pv_remap') || 1); } catch (e) {}   /* new key: an old case-2 setting would remap twice */
+  setCase([1, 2, 3, 4].includes(savedCase) ? savedCase : 1);
+
+  function renderGlove() {
+    let sum = 0;
+    for (let t = 0; t < TAXEL_COUNT; t++) {
+      const el = gloveEls[t], src = padSrc[t];
+      if (src === null) {
+        el.c.style.fill = 'none'; el.c.style.stroke = '#8a94a3'; el.c.style.strokeDasharray = '5 4';
+        el.v.style.fill = '#8a94a3'; el.v.textContent = '×';
+        continue;
+      }
+      el.c.style.stroke = ''; el.c.style.strokeDasharray = '';
+      const v = latest[src] ?? 0;
+      const [r, g, b] = heat(v / fullScale);
+      el.c.style.fill = `rgb(${r},${g},${b})`;
+      el.v.style.fill = (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#111' : '#fff';
+      el.v.textContent = v;
+      sum += v;
+    }
+    return sum;
+  }
+
+  /* ---------- tabs ---------- */
+  function setTab(tab) {
+    document.body.dataset.tab = tab;
+    document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === tab)));
+    try { localStorage.setItem('pv_tab', tab); } catch (e) {}
+  }
+  document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+  let savedTab = 'grid';
+  try { savedTab = localStorage.getItem('pv_tab') || 'grid'; } catch (e) {}
+  if (location.hash === '#glove' || location.hash === '#grid') savedTab = location.hash.slice(1);
+  setTab(savedTab === 'glove' ? 'glove' : 'grid');
+  const isGlove = () => document.body.dataset.tab === 'glove';
+
+  $('btnMapReset').addEventListener('click', () => { map = DEFAULT_MAP.slice(); saveMap(); refreshLabels(); });
+  $('fullScale').addEventListener('input', e => {
+    fullScale = +e.target.value; $('fullScaleVal').textContent = fullScale;
+    document.querySelectorAll('.legendMax').forEach(el => { el.textContent = fullScale; });
+  });
+  $('btnPeak').addEventListener('click', () => { peaks.fill(0); });
+  $('showRaw').addEventListener('change', e => { $('raw').hidden = e.target.checked === false; });
+
+  function loadMap() {
+    try {
+      const m = JSON.parse(localStorage.getItem('pv_map'));
+      if (Array.isArray(m) && m.length === 9) return m;
+    } catch (e) {}
+    return DEFAULT_MAP.slice();
+  }
+  function saveMap() { try { localStorage.setItem('pv_map', JSON.stringify(map)); } catch (e) {} }
+
+  /* ---------- colour: inferno-like ramp ---------- */
+  const STOPS = [[13,8,135],[106,0,168],[177,42,144],[225,100,98],[252,166,54],[240,249,33]];
+  function heat(t) {
+    t = Math.min(1, Math.max(0, t));
+    const x = t * (STOPS.length - 1), i = Math.min(STOPS.length - 2, Math.floor(x)), f = x - i;
+    const a = STOPS[i], b = STOPS[i + 1];
+    return [0, 1, 2].map(k => Math.round(a[k] + (b[k] - a[k]) * f));
+  }
+
+  /* ---------- parsing ---------- */
+  /* Firmware sends "<v0> ... <v28>"; the spec also allows "<frame> <scale> <v0> ... <v28>". Lines starting with '#' are info. */
+  function handleLine(line) {
+    line = line.trim();
+    if (line === '' ) return;
+    if (line[0] === '#') { latestMeta.info = line; return; }
+    const parts = line.split(/\s+/).map(Number);
+    if (parts.some(n => Number.isFinite(n) === false)) { badCount++; return; }
+    let vals, meta = {};
+    if (parts.length === TAXEL_COUNT) {
+      vals = parts;
+    } else if (parts.length === TAXEL_COUNT + 2) {
+      meta.frame = parts[0]; meta.scale = parts[1]; vals = parts.slice(2);
+    } else { badCount++; return; }
+    latest = vals; latestMeta = meta; latestMeta.raw = line;
+    lineCount++; rateCount++;
+    if (drumOn && isGlove() === false) drumProcess(vals);
+  }
+
+  /* ---------- render loop ---------- */
+  function render() {
+    const now = performance.now();
+    if (now - lastRateT >= 1000) {
+      $('fps').textContent = (rateCount * 1000 / (now - lastRateT)).toFixed(0) + ' Hz';
+      rateCount = 0; lastRateT = now;
+      $('lines').textContent = lineCount; $('bad').textContent = badCount;
+    }
+    if (latest && isGlove()) {
+      $('sum').textContent = renderGlove();
+      $('frame').textContent = latestMeta.frame ?? '–';
+      $('scale').textContent = latestMeta.scale ?? '–';
+      if ($('raw').hidden === false) $('raw').textContent = latestMeta.raw || '';
+    } else if (latest) {
+      let sum = 0, cx = 0, cy = 0;
+      for (let i = 0; i < 9; i++) {
+        const v = latest[map[i]] ?? 0;
+        if (v > peaks[i]) peaks[i] = v;
+        const [r, g, b] = heat(v / fullScale);
+        const c = cells[i];
+        c.el.style.backgroundColor = `rgb(${r},${g},${b})`;
+        c.el.style.color = (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#111' : '#fff';
+        c.v.textContent = v;
+        c.pk.textContent = 'pk ' + peaks[i];
+        sum += v; cx += v * (i % 3); cy += v * Math.floor(i / 3);
+      }
+      $('sum').textContent = sum;
+      if (drumOn) $('maxNow').textContent = Math.max(...map.map(t => latest[t] ?? 0));
+      $('frame').textContent = latestMeta.frame ?? '–';
+      $('scale').textContent = latestMeta.scale ?? '–';
+      const cop = $('cop');
+      if ($('showCop').checked && sum > 0) {
+        cop.style.display = 'block';
+        cop.style.left = ((cx / sum + 0.5) / 3 * 100) + '%';
+        cop.style.top = ((cy / sum + 0.5) / 3 * 100) + '%';
+      } else cop.style.display = 'none';
+      if ($('raw').hidden === false) $('raw').textContent = latestMeta.raw || '';
+    }
+    requestAnimationFrame(render);
+  }
+  requestAnimationFrame(render);
+
+  /* ---------- serial ---------- */
+  function setStatus(text, state) {
+    $('statusText').textContent = text;
+    $('dot').className = 'dot' + (state ? ' ' + state : '');
+  }
+
+  if (('serial' in navigator) === false) {
+    $('noSerial').hidden = false; $('btnConnect').disabled = true;
+  }
+
+  $('btnConnect').addEventListener('click', async () => {
+    stopDemo();
+    try {
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 115200 });     /* CDC ignores the baud rate */
+      setStatus('Connected', 'on');
+      $('btnConnect').disabled = true; $('btnDisconnect').disabled = false;
+      readLoop();
+    } catch (e) {
+      setStatus('Connect failed: ' + e.message, 'err');
+      port = null;
+    }
+  });
+
+  $('btnDisconnect').addEventListener('click', disconnect);
+
+  async function readLoop() {
+    keepReading = true;
+    const decoder = new TextDecoder();
+    let buf = '';
+    while (port && port.readable && keepReading) {
+      reader = port.readable.getReader();
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          let nl;
+          while ((nl = buf.indexOf('\n')) >= 0) {
+            handleLine(buf.slice(0, nl));
+            buf = buf.slice(nl + 1);
+          }
+          if (buf.length > 4096) buf = '';   /* garbage guard */
+        }
+      } catch (e) {
+        setStatus('Read error: ' + e.message, 'err');
+        keepReading = false;
+      } finally {
+        reader.releaseLock(); reader = null;
+      }
+    }
+    await closePort();
+  }
+
+  async function disconnect() {
+    keepReading = false;
+    if (reader) { try { await reader.cancel(); } catch (e) {} }
+    else await closePort();
+  }
+
+  async function closePort() {
+    if (port) { try { await port.close(); } catch (e) {} }
+    port = null;
+    $('btnConnect').disabled = ('serial' in navigator) === false;
+    $('btnDisconnect').disabled = true;
+    if ($('dot').className.includes('err') === false) setStatus('Not connected', '');
+  }
+
+  if ('serial' in navigator) {
+    navigator.serial.addEventListener('disconnect', e => {
+      if (e.target === port) { setStatus('Device unplugged', 'err'); disconnect(); }
+    });
+  }
+
+  /* ---------- demo ---------- */
+  function stopDemo() {
+    if (demoTimer) { clearInterval(demoTimer); demoTimer = null; $('btnDemo').textContent = 'Demo data'; setStatus('Not connected', ''); }
+  }
+  $('btnDemo').addEventListener('click', () => {
+    if (demoTimer) { stopDemo(); return; }
+    if (port) return;
+    $('btnDemo').textContent = 'Stop demo';
+    setStatus('Demo data', 'on');
+    const t0 = performance.now();
+    demoTimer = setInterval(() => {
+      const t = (performance.now() - t0) / 1000;
+      const px = 1 + Math.cos(t * 0.9) * 1.1, py = 1 + Math.sin(t * 1.3) * 1.1;
+      const amp = 2500 + 1500 * Math.sin(t * 0.5);
+      const vals = new Array(TAXEL_COUNT).fill(0);
+      if (isGlove()) {                 /* blob wandering over the hand */
+        const gx = 560 + 380 * Math.cos(t * 0.7), gy = 430 + 300 * Math.sin(t * 1.1);
+        for (let k = 0; k < TAXEL_COUNT; k++) {
+          const [x, y] = PAD_XY[TAXEL_NAME[k]];
+          const v = Math.round(amp * Math.exp(-((x - gx) ** 2 + (y - gy) ** 2) / (2 * 130 ** 2)) + Math.random() * 8);
+          if (padSrc[k] !== null) vals[padSrc[k]] = v <= 5 ? 0 : Math.min(VMAX, v);   /* as the board would send it */
+        }
+        handleLine(vals.join(' '));
+        return;
+      }
+      for (let i = 0; i < 9; i++) {
+        const d2 = (i % 3 - px) ** 2 + (Math.floor(i / 3) - py) ** 2;
+        const v = Math.round(amp * Math.exp(-d2 / 0.6) + Math.random() * 8);
+        vals[map[i]] = v <= 5 ? 0 : Math.min(VMAX, v);
+      }
+      handleLine(vals.join(' '));
+    }, 1000 / 120);
+  });
+})();
+</script>
+</body>
+</html>
