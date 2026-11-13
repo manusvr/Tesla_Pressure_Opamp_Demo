@@ -14,7 +14,7 @@ typedef struct
     uint16_t raw[SCAN_ROWS][SCAN_CHANNELS];
     uint16_t null[SCAN_CHANNELS];   /* null reference, same path, no row driven */
     uint16_t cal[SCAN_CHANNELS];    /* CAL_A, 9.09 kOhm on every column */
-    uint8_t  scale;                 /* DAC scale of this frame, 0..4 */
+    uint8_t  scale[SCAN_ROWS];      /* DAC scale per row of this frame, 0..4 (all equal unless RANGING_PER_ROW) */
 } scan_frame_t;
 
 void scan_start(void);              /* starts TIM6 Triggers frame steps */

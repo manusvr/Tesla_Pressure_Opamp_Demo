@@ -20,6 +20,7 @@ static void select_step(uint8_t s)
 {
     if (s < SCAN_ROWS)
     {
+        sense_set_scale(buffer[fill].scale[s]);     /* DAC of this row, settles with the TIA; null and CAL keep it (null drives no row) */
         select_row(s);
     }
     else if (s == SCAN_ROWS)
@@ -48,15 +49,12 @@ static void scan_tick(void)                         /* runs every TIM6 tick whic
 
     if (step == SCAN_STEPS)                         /* frame complete switch to other buffer for filling */
     {
-        uint8_t s = ranging_next_scale(&buffer[fill]);  /* decide from the frame just finished */
+        ranging_next_scales(&buffer[fill], buffer[!fill].scale);  /* decide from the frame just finished */
 
         done = fill;
         ready = true;
         fill = !fill;
         step = 0;
-
-        sense_set_scale(s);                         /* DAC changes only between frames: null and CAL match the rows */
-        buffer[fill].scale = s;
     }
 
     select_step(step);                               /* select next step for the upcoming tick */

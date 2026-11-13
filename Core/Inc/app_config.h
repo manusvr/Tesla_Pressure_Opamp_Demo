@@ -6,6 +6,7 @@
 #define SCAN_FRAMERATE      120     /* Hz */
 
 #define RANGING_ENABLE    1       /* 1: DAC ranging, 0: fixed DAC at OUTPUT_SENSITIVITY */
+#define RANGING_PER_ROW   1       /* 1: every row ranges on its own (a hard press only lowers its own row), 0: one DAC scale for the whole frame */
 
 /* Output sensitivity 0..4: higher = a lighter press reaches 4095.
  * Works in both modes; with ranging off it also sets the DAC.
@@ -26,8 +27,8 @@
 #define TARE_PER_TAXEL      1       /* 1: each taxel re-tares on its own, 0: only when all taxels are at rest */
 #define TARE_QUIET_LEVEL    22     /* output counts: below this a taxel counts as untouched */
 #define TARE_STABLE_BAND    1      /* output counts: a taxel that moves more than this is not at rest (rest noise ~ +-3, a finger hold moves more) */
-#define TARE_QUIET_MS       1000    /* at rest this long: re-tare */
-#define TARE_HARD_LEVEL     1000     /* output counts: a press this hard starts the cooldown */
+#define TARE_QUIET_MS       1000   /* at rest this long: re-tare */
+#define TARE_HARD_LEVEL     1000    /* output counts: a press this hard starts the cooldown */
 #define TARE_COOLDOWN_MS    2000    /* no re-tare this long after a hard press */
  
 /* Deadband: values at or below this are sent as 0, hides noise at rest.

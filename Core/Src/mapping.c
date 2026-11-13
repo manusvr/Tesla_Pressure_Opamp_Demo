@@ -142,11 +142,11 @@ static const taxel_cell_t taxel_cell[TAXEL_COUNT] =
 
 void mapping_frame_to_taxels(const scan_frame_t *f, uint16_t out[TAXEL_COUNT])
 {
-    uint16_t drive = sense_drive(f->scale);
     uint32_t value[TAXEL_COUNT];
 
     for (uint8_t i = 0; i < TAXEL_COUNT; i++)
     {
+        uint16_t drive = sense_drive(f->scale[taxel_cell[i].row]);   /* DAC scale of this taxel's row */
         uint16_t null = f->null[taxel_cell[i].tia];
         uint16_t raw  = f->raw[taxel_cell[i].row][taxel_cell[i].tia];
 

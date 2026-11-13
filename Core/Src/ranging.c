@@ -6,31 +6,26 @@
 #define STEP_LOW  (1500U * SENSE_COUNTS_PER_LSB)   /* one scale up only if the largest step stays below this */
 
 _Static_assert(OUTPUT_SENSITIVITY < SENSE_DAC_SCALES, "OUTPUT_SENSITIVITY must be 0..4");
+_Static_assert(RANGING_PER_ROW == 0 || RANGING_PER_ROW == 1, "RANGING_PER_ROW must be 0 or 1");
 
-uint8_t ranging_next_scale(const scan_frame_t *f)
+static uint16_t row_max_step(const scan_frame_t *f, uint8_t k)   /* largest step of row k over its 4 TIAs */
 {
-    if (RANGING_ENABLE == false)
-    {
-        return OUTPUT_SENSITIVITY;
-    }
-
     uint16_t max_step = 0;
 
-    for (uint8_t k = 0; k < SCAN_ROWS; k++)
+    for (uint8_t t = 0; t < SCAN_CHANNELS; t++)
     {
-        for (uint8_t t = 0; t < SCAN_CHANNELS; t++)
+        uint16_t step = (f->raw[k][t] < f->null[t]) ? f->null[t] - f->raw[k][t] : 0;
+        if (step > max_step)
         {
-            uint16_t step = (f->raw[k][t] < f->null[t]) ? f->null[t] - f->raw[k][t] : 0;
-            if (step > max_step)
-            {
-                max_step = step;
-            }
+            max_step = step;
         }
     }
+    return max_step;
+}
 
-    uint8_t s = f->scale;
-
-    if (max_step > STEP_CLIP)                      
+static uint8_t next_scale(uint8_t s, uint16_t max_step)        /* scale s gave max_step: scale for the next frame */
+{
+    if (max_step > STEP_CLIP)
     {
         return 0;
     }
@@ -43,4 +38,43 @@ uint8_t ranging_next_scale(const scan_frame_t *f)
         return s + 1;
     }
     return s;
+}
+
+void ranging_next_scales(const scan_frame_t *f, uint8_t next[SCAN_ROWS])
+{
+    if (RANGING_ENABLE == false)
+    {
+        for (uint8_t k = 0; k < SCAN_ROWS; k++)
+        {
+            next[k] = OUTPUT_SENSITIVITY;
+        }
+        return;
+    }
+
+    if (RANGING_PER_ROW)                            /* every row on its own */
+    {
+        for (uint8_t k = 0; k < SCAN_ROWS; k++)
+        {
+            next[k] = next_scale(f->scale[k], row_max_step(f, k));
+        }
+        return;
+    }
+
+    uint16_t max_step = 0;                          /* whole frame: the largest step of all rows decides */
+
+    for (uint8_t k = 0; k < SCAN_ROWS; k++)
+    {
+        uint16_t step = row_max_step(f, k);
+        if (step > max_step)
+        {
+            max_step = step;
+        }
+    }
+
+    uint8_t s = next_scale(f->scale[0], max_step);
+
+    for (uint8_t k = 0; k < SCAN_ROWS; k++)
+    {
+        next[k] = s;
+    }
 }
